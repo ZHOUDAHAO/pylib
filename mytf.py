@@ -17,6 +17,9 @@ def get_ele_num(shape):
 		num *= s
 	return num
 
+def conv_wrapper(convfunc, *args, **kwargs):
+	return convfunc(*args, **kwargs)
+
 # W = [filter_width, in_channels, out_channels]
 def conv1d(x, W, stride, padding = 'SAME', Name = None):
 	return tf.nn.conv1d(x, W, stride = stride, padding = padding, name = Name)
@@ -38,11 +41,12 @@ def max_pool1d(x, ks, stride, Name = None):
 def max_pool2d_as_1d(x, ks, stride, Name = None):
 	return tf.nn.max_pool(x, ksize = [1, ks, 1, 1], strides = [1, stride, 1, 1], padding = 'SAME', name = Name)
 
-def conv_bia_nonlin(inputs, conv, stride, bias = None, convfunc = conv2d, name1 = None, name2 = None):
-	_conv = convfunc(inputs, conv, stride, Name = name1)
+def conv_bia_nonlin(inputs, conv, stride, padding = 'SAME', bias = None, convfunc = conv2d, name1 = None, name2 = None):
+	_conv = convfunc(inputs, conv, stride, padding, Name = name1)
 	if bias is not None:
 		_conv = tf.nn.bias_add(_conv, bias, name = name2)
-	output = tf.nn.relu(_conv)
+	# output = tf.nn.relu(_conv)
+	output = tf.sigmoid(_conv)
 	return _conv, output
 
 def conv_bn(inputs, conv, stride, convfunc, relu):
@@ -61,6 +65,9 @@ def set_random_seed():
 	tf.set_random_seed(seed)
 
 def myinit(name, shape):
+	return randn_init(name, shape)
+
+def randn_init(name, shape):
 	np.random.seed(int(time.time()))
 	init = tf.constant(0.01 * np.random.randn(*shape))
 	init = tf.cast(init, tf.float32)
@@ -128,22 +135,21 @@ def keep_dim_batchnorm(x, one_dim = 2):
 		x = tf.contrib.layers.batch_norm(x)
 	return x
 
-def crop(a, b, offset):
-	hb = int(b.get_shape()[-3])
-	wb = int(b.get_shape()[-2])
-	ha = int(a.get_shape()[-3])
-	wa = int(a.get_shape()[-2])
-	y1 = offset / float(ha - 1)
-	x1 = offset / float(wa - 1)
-	y2 = (offset + hb - 1) / float(ha - 1)
-	x2 = (offset + wb - 1) / float(wa - 1)
-	print ha,wa,hb,wb
-	print x1,y1,x2,y2
-	print hb,wb
-	res = tf.image.crop_and_resize(a, [[y1, x1, y2, x2]], [0], [hb, wb]) 
+def deconv1d(x, W, stride, h = -1, padding = 'SAME'):
+	_x = tf.expand_dims(x, 2)
+	_res = deconv2d(_x, W, stride, h, w = 1, stride2 = 1, padding = padding)
+	res = tf.squeeze(_res, 2)
 	return res
 
-def deconv2d(x, W, stride, padding = 'SAME'):
-	h = x.get_shape()[-3]
-	w = x.get_shape()[-2]
-	return tf.nn.conv2d_transpose(x, W, [1, stride * h, stride * w, 1], [1, stride, stride, 1], padding = padding)
+def deconv2d(x, W, stride1, h = -1, w = -1, stride2 = -1, padding = 'SAME'):
+	if stride2 == -1:
+		stride2 = stride1
+	if h == -1:
+		h = int(x.get_shape()[-3]) * stride1
+	if w == -1:
+		w = int(x.get_shape()[-2]) * stride2
+	channels = int(x.get_shape()[-1])
+	deconv_shape = [tf.shape(x)[0], h, w, channels]
+	res = tf.nn.conv2d_transpose(x, W, deconv_shape, [1, stride1, stride2, 1], padding = padding)
+	res.set_shape([None, h, w, channels])
+	return res
