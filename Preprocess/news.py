@@ -53,10 +53,6 @@ def count_len(fname):
 	print num
 	print total
 
-def preprocess1():
-	split(train_path, label_train, pre_train) 
-	split(test_path, label_test, pre_test) 
-
 # position type is str in (alpha, position) pair
 def create_dict():
 	dic = defaultdict(int)

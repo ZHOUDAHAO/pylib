@@ -88,7 +88,8 @@ class tf_classify_summary(object):
 				
 				if self.epoch % PRINT_TURN == 0:
 					print 'epoch',self.epoch
-					train_summary, train_loss, train_acc = sess.run([self.merged, self.loss, self.acc], feed)
+					pred, train_summary, train_loss, train_acc = sess.run([self.pred, self.merged, self.loss, self.acc], feed)
+					print pred
 					print 'Loss:',train_loss
 					self.train_writer.add_summary(train_summary, self.epoch)
 					update_time()
